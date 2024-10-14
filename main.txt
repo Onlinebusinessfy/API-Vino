@@ -1,0 +1,66 @@
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import numpy as np
+import pandas as pd
+from tensorflow import keras
+from sklearn.preprocessing import StandardScaler
+
+# Cargar el modelo
+model = keras.models.load_model('wine_quality_model.h5')
+
+# Crear un objeto para el escalador
+scaler = StandardScaler()
+
+# Cargar los datos originales y ajustar el escalador
+data = pd.read_csv('C:/Users/fache/Desktop/API de calidad del vino/WineQT.csv')
+X = data.drop(columns=['quality', 'Id'])
+scaler.fit(X)
+
+# Crear la aplicación FastAPI
+app = FastAPI()
+
+# Definir un modelo para los datos de entrada
+class WineFeatures(BaseModel):
+    fixed_acidity: float
+    volatile_acidity: float
+    citric_acid: float
+    residual_sugar: float
+    chlorides: float
+    free_sulfur_dioxide: float
+    total_sulfur_dioxide: float
+    density: float
+    pH: float
+    sulphates: float
+    alcohol: float
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the wine quality prediction API"}
+
+@app.post("/predict")
+def predict(wine: WineFeatures):
+    # Convertir las características del vino en un DataFrame
+    input_data = pd.DataFrame([{
+        "fixed_acidity": wine.fixed_acidity,
+        "volatile_acidity": wine.volatile_acidity,
+        "citric_acid": wine.citric_acid,
+        "residual_sugar": wine.residual_sugar,
+        "chlorides": wine.chlorides,
+        "free_sulfur_dioxide": wine.free_sulfur_dioxide,
+        "total_sulfur_dioxide": wine.total_sulfur_dioxide,
+        "density": wine.density,
+        "pH": wine.pH,
+        "sulphates": wine.sulphates,
+        "alcohol": wine.alcohol
+    }])
+    
+    # Estandarizar los datos de entrada
+    scaled_data = scaler.transform(input_data)
+
+    # Hacer la predicción
+    prediction = model.predict(scaled_data)
+    
+    return JSONResponse(content={"predicted_quality": prediction[0][0]})
+
+# Ejecutar el servidor con: python -m uvicorn main:app --reload
